@@ -118,7 +118,7 @@ namespace EnderChest.Core
 			if (flag)
 			{
 				Object.Destroy(texture);
-				global::Debug.LogWarning("[StorageNetwork] Failed to decode sprite: " + filePath);
+				global::Debug.LogWarning("[EnderChest] Failed to decode sprite: " + filePath);
 				result = null;
 			}
 			else

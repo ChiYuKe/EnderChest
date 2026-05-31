@@ -22,6 +22,7 @@ namespace EnderChest.Buildings
 			buildingDef.AudioCategory = "Metal";
 			buildingDef.Overheatable = false;
 			buildingDef.AddSearchTerms(SEARCH_TERMS.STORAGE);
+
 			return buildingDef;
 		}
 

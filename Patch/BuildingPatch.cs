@@ -1,12 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using HarmonyLib;
 
 namespace EnderChest.Patch
 {
-	internal class BuildingPatch
+	public static class BuildingPatch
 	{
+		[HarmonyPatch(typeof(GeneratedBuildings), "LoadGeneratedBuildings")]
+		public static class LoadGeneratedBuildingsPatch
+		{
+			public static void Prefix()
+			{
+				ModUtil.AddBuildingToPlanScreen("Base", "EnderCollector");
+				ModUtil.AddBuildingToPlanScreen("Base", "EnderCore");
+			}
+		}
 	}
 }

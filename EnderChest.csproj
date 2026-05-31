@@ -17,7 +17,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
+    <OutputPath>C:\Users\12615\Documents\Klei\OxygenNotIncluded\mods\local\EnderChest\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -31,6 +31,25 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Buildings\EnderCollectorConfig.cs" />
+    <Compile Include="Buildings\EnderCoreConfig.cs" />
+    <Compile Include="Components\EnderCollector.cs" />
+    <Compile Include="Components\EnderCore.cs" />
+    <Compile Include="Components\EnderNetwork.cs" />
+    <Compile Include="Components\EnderNetworkRegistry.cs" />
+    <Compile Include="Patch\SideScreenPatch.cs" />
+    <Compile Include="STRING.cs" />
+    <Compile Include="ModEntry.cs" />
+    <Compile Include="Patch\BuildingPatch.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="UI\EnderNetworkBindSelectionScreen.cs" />
+    <Compile Include="UI\EnderNetworkBindSideScreen.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Core\" />
+    <Folder Include="Utils\" />
+  </ItemGroup>
+  <ItemGroup>
     <Reference Include="0Harmony">
       <HintPath>..\..\..\Program Files\Steam\steamapps\common\OxygenNotIncluded\OxygenNotIncluded_Data\Managed\0Harmony.dll</HintPath>
       <Private>False</Private>
@@ -43,38 +62,29 @@
       <HintPath>..\..\..\Program Files\Steam\steamapps\common\OxygenNotIncluded\OxygenNotIncluded_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Net.Http" />
-    <Reference Include="System.Xml" />
+    <Reference Include="PLib, Version=4.24.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\PLib.4.24.0\lib\net48\PLib.dll</HintPath>
+    </Reference>
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.Reflection.Emit.ILGeneration" />
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>..\..\..\Program Files\Steam\steamapps\common\OxygenNotIncluded\OxygenNotIncluded_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
       <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.ImageConversionModule">
-      <HintPath>..\..\..\Program Files\Steam\steamapps\common\OxygenNotIncluded\OxygenNotIncluded_Data\Managed\UnityEngine.ImageConversionModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.JSONSerializeModule">
       <HintPath>..\..\..\Program Files\Steam\steamapps\common\OxygenNotIncluded\OxygenNotIncluded_Data\Managed\UnityEngine.JSONSerializeModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>..\..\..\Program Files\Steam\steamapps\common\OxygenNotIncluded\OxygenNotIncluded_Data\Managed\UnityEngine.UI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Buildings\EnderCollectorConfig.cs" />
-    <Compile Include="Buildings\EnderCoreConfig.cs" />
-    <Compile Include="Components\EnderCollector.cs" />
-    <Compile Include="Components\EnderCore.cs" />
-    <Compile Include="Components\EnderNetwork.cs" />
-    <Compile Include="Core\myLocalization.cs" />
-    <Compile Include="Core\mySpriteLoader.cs" />
-    <Compile Include="EnderChest.cs" />
-    <Compile Include="ModEntry.cs" />
-    <Compile Include="Patch\BuildingPatch.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
+    <WCFMetadata Include="Connected Services\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

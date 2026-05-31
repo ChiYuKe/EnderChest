@@ -1,22 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
-using KSerialization;
+﻿using KSerialization;
 using UnityEngine;
 
 namespace EnderChest.Components
 {
 	[SerializationConfig(MemberSerialization.OptIn)]
-	public class EnderCollector: KMonoBehaviour, IUserControlledCapacity
+	public class EnderCollector: KMonoBehaviour, IUserControlledCapacity, IEnderNetworkMember
 	{
-		public int EnderNetworkID = 0;
-
 		public Storage LocalStorage => this.storage;
 
 		public Storage IntakeStorage => this.storage;
+
+		public EnderNetworkMemberRole Role => EnderNetworkMemberRole.Collector;
 
 		public int BoundCoreInstanceId => this.boundCoreInstanceId;
 
@@ -113,7 +107,7 @@ namespace EnderChest.Components
 
 		private void TryRegisterWithNetwork()
 		{
-			this.boundNetwork = ProxyChestRegistry.Resolve(this.boundCoreInstanceId);
+			this.boundNetwork = EnderNetworkRegistry.Resolve(this.boundCoreInstanceId);
 			this.boundNetwork?.RegisterMember(this);
 		}
 	}
