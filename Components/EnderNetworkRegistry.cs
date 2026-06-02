@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 namespace EnderChest.Components
 {
 	public static class EnderNetworkRegistry
@@ -8,6 +9,8 @@ namespace EnderChest.Components
 
 		// 运行中的末影收集器缓存；用于统计绑定数量，替代开 UI 时 Object.FindObjectsOfType 的全局查找。
 		private static readonly List<EnderCollector> allCollectors = new List<EnderCollector>();
+
+		private static readonly Dictionary<string, List<IEnderNetworkMember>> pendingList = new Dictionary<string, List<IEnderNetworkMember>>();
 
 		public static event System.Action CoresChanged;
 
@@ -20,6 +23,14 @@ namespace EnderChest.Components
 			if (!allNetworks.Contains(network))
 			{
 				allNetworks.Add(network);
+				if (pendingList.TryGetValue(network.networkId, out var list))
+				{
+					foreach (IEnderNetworkMember member in list)
+					{
+						Debug.Log($"[EN] Pending process {network.name}");
+						member.BindToNetwork(network);
+					}
+				}
 				NotifyCoresChanged();
 			}
 		}
@@ -89,14 +100,23 @@ namespace EnderChest.Components
 			return result;
 		}
 
-		public static EnderNetwork Resolve(int networkInstanceId) {
+		public static EnderNetwork Resolve(string networkId) {
 			// 收集器保存的是核心 InstanceID，实际使用前需要从运行中核心缓存反查对象。
-			return EnderNetworkRegistry.allNetworks.Find(w => w.InstanceID == networkInstanceId);
+			return EnderNetworkRegistry.allNetworks.Find(w => w.networkId == networkId);
 		}
 
-		public static int CountCollectorsBoundTo(int networkInstanceId)
+		public static void Pending(string networkId, IEnderNetworkMember member) {
+			if (!pendingList.TryGetValue(networkId, out var list))
+			{
+				list = new List<IEnderNetworkMember>();
+				pendingList.Add(networkId, list);
+			}
+			list.Add(member);
+		}
+
+		public static int CountCollectorsBoundTo(string networkId)
 		{
-			if (networkInstanceId == 0)
+			if (networkId == "")
 			{
 				return 0;
 			}
@@ -110,7 +130,7 @@ namespace EnderChest.Components
 					allCollectors.RemoveAt(i);
 					continue;
 				}
-				if (collector.BoundNetworkInstanceId == networkInstanceId)
+				if (collector.BoundNetworkId == networkId)
 				{
 					count++;
 				}

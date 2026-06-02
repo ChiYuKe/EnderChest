@@ -401,7 +401,7 @@ namespace EnderChest.UI
 				? rowsRoot.transform.GetChild(index).gameObject
 				: Util.KInstantiateUI(prefab, rowsRoot, true);
 			row.SetActive(true);
-			row.name = "EnderNetwork_" + network.InstanceID;
+			row.name = "EnderNetwork_" + network.networkId;
 
 			// 地质调谐仪行预制件通过 HierarchyReferences 暴露 label/icon/amount，这里只替换内容，不改原版结构。
 			HierarchyReferences references = row.GetComponent<HierarchyReferences>();
@@ -426,7 +426,7 @@ namespace EnderChest.UI
 				if (amount != null)
 				{
 					// 右侧计数显示当前绑定到这个核心的收集器数量。
-					int boundCollectors = EnderNetworkRegistry.CountCollectorsBoundTo(network.InstanceID);
+					int boundCollectors = EnderNetworkRegistry.CountCollectorsBoundTo(network.networkId);
 					amount.SetText(boundCollectors.ToString());
 					if (amount.transform.parent != null)
 					{
@@ -476,7 +476,7 @@ namespace EnderChest.UI
 			}
 			else
 			{
-				row = new PButton("EnderNetwork_" + network.InstanceID)
+				row = new PButton("EnderNetwork_" + network.networkId)
 				{
 					TextAlignment = TextAnchor.MiddleLeft,
 					TextStyle = PUITuning.Fonts.UIDarkStyle,
@@ -577,12 +577,12 @@ namespace EnderChest.UI
 		private string GetCurrentCoreName()
 		{
 			// 当前绑定只保存核心 InstanceID，显示名称前先从注册表找回核心对象。
-			if (collector == null || collector.BoundNetworkInstanceId == 0)
+			if (collector == null || collector.BoundNetworkId == "")
 			{
 				return STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.EMPTY);
 			}
 
-			EnderNetwork network = EnderNetworkRegistry.Resolve(collector.BoundNetworkInstanceId);
+			EnderNetwork network = EnderNetworkRegistry.Resolve(collector.BoundNetworkId);
 			return network != null ? network.GetDisplayName() : STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.INVALID_CORE);
 		}
 
@@ -606,14 +606,14 @@ namespace EnderChest.UI
 		}
 		private string GetNetworkDetail(EnderNetwork network)
 		{
-			int collectors = EnderNetworkRegistry.CountCollectorsBoundTo(network.InstanceID);
+			int collectors = EnderNetworkRegistry.CountCollectorsBoundTo(network.networkId);
 			
 			return string.Format(STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.CORE_DETAIL), GetWorldDisplayName(network.GetMyWorldId()), collectors);
 		}
 
 		private bool IsBoundTo(EnderNetwork network)
 		{
-			return collector != null && network != null && collector.BoundNetworkInstanceId == network.InstanceID;
+			return collector != null && network != null && collector.BoundNetworkId == network.networkId;
 		}
 
 		private void Bind(EnderNetwork network)

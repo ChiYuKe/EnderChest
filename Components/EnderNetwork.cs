@@ -19,7 +19,10 @@ namespace EnderChest.Components
 
 		Storage LocalStorage { get; }
 
-		int BoundNetworkInstanceId { get; }
+		[Serialize]
+		string BoundNetworkId { get; }
+
+		void BindToNetwork(EnderNetwork network);
 
 		bool IsOperational();
 	}
@@ -33,6 +36,9 @@ namespace EnderChest.Components
 		[Serialize]
 		public string networkName = "";
 
+		[Serialize]
+		private string uuid;
+
 		[MyCmpGet]
 		private UserNameable nameable;
 
@@ -40,7 +46,7 @@ namespace EnderChest.Components
 		
 		private int nameChangedHandle = -1;
 
-		public int InstanceID => this.GetComponent<KPrefabID>().InstanceID;
+		public string networkId => this.uuid;
 
 		public Storage HubStorage => this.hubStorage;
 
@@ -53,6 +59,10 @@ namespace EnderChest.Components
 			this.hubStorage = this.GetComponent<Storage>(); 
 			this.SyncNetworkNameFromNameable();
 			this.nameChangedHandle = this.Subscribe((int)GameHashes.NameChanged, new System.Action<object>(this.OnNameChanged));
+			if (string.IsNullOrEmpty(uuid)) {
+				uuid = Guid.NewGuid().ToString();
+				Debug.Log($"[EN] Assign new uuid {uuid} to new network");
+			}
 			EnderNetworkRegistry.Register(this);
 		}
 		protected override void OnCleanUp()
@@ -81,13 +91,14 @@ namespace EnderChest.Components
 		}
 		public void RegisterMember(IEnderNetworkMember member)
 		{
-			if (member == null || member.BoundNetworkInstanceId != this.InstanceID)
+			if (member == null || member.BoundNetworkId != this.networkId)
 			{
 				return;
 			}
 			var list = member.Role == EnderNetworkMemberRole.Collector ? this.collectors : this.consumers;
 			if (!list.Contains(member))
 			{
+				Debug.Log($"[EN] Add member to network {name}");
 				list.Add(member);
 			}
 		}

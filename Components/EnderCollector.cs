@@ -1,4 +1,5 @@
-﻿using KSerialization;
+﻿using System;
+using KSerialization;
 using UnityEngine;
 
 namespace EnderChest.Components
@@ -12,7 +13,7 @@ namespace EnderChest.Components
 
 		public EnderNetworkMemberRole Role => EnderNetworkMemberRole.Collector;
 
-		public int BoundNetworkInstanceId => this.boundNetworkInstanceId;
+		public string BoundNetworkId => this.boundNetworkId;
 
 		[MyCmpGet]
 		private Storage storage;
@@ -51,7 +52,7 @@ namespace EnderChest.Components
 		public string lockerName = "";
 
 		[Serialize]
-		public int boundNetworkInstanceId;
+		public string boundNetworkId;
 
 		private EnderNetwork boundNetwork;
 
@@ -63,13 +64,15 @@ namespace EnderChest.Components
 
 		public bool ControlEnabled() => true;
 
-		public int GetBoundNetworkInstanceId() => this.boundNetworkInstanceId;
+		public string GetBoundNetworkId() => this.boundNetworkId;
 
 		public void BindToNetwork(EnderNetwork network)
 		{
 			// 收集器只序列化核心 InstanceID；真正的核心对象通过 EnderNetworkRegistry.Resolve 再取回。
-			int newId = network != null ? network.InstanceID : 0;
-			if (this.boundNetworkInstanceId == newId)
+			Debug.Log($"[EN] BindToNetWork {this.name} = {this.boundNetworkId}");
+			string oldId = boundNetwork != null ? boundNetwork.networkId : "";
+			string newId = network != null ? network.networkId : "";
+			if (oldId == newId)
 			{
 				return;
 			}
@@ -78,7 +81,7 @@ namespace EnderChest.Components
 				this.boundNetwork.UnregisterMember(this);
 				this.boundNetwork = null;
 			}
-			this.boundNetworkInstanceId = newId;
+			this.boundNetworkId = newId;
 			this.TryRegisterWithNetwork();
 		}
 
@@ -113,8 +116,15 @@ namespace EnderChest.Components
 		private void TryRegisterWithNetwork()
 		{
 			// 存档加载或重新绑定后，根据保存的 InstanceID 找回核心对象并注册为网络成员。
-			this.boundNetwork = EnderNetworkRegistry.Resolve(this.boundNetworkInstanceId);
-			this.boundNetwork?.RegisterMember(this);
+			this.boundNetwork = EnderNetworkRegistry.Resolve(this.boundNetworkId);
+
+			if (!string.IsNullOrEmpty(this.boundNetworkId) && this.boundNetwork == null) {
+				EnderNetworkRegistry.Pending(this.boundNetworkId, this);
+			}
+			else
+			{
+				this.boundNetwork?.RegisterMember(this);
+			}
 		}
 	}
 }
