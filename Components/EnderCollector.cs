@@ -69,7 +69,6 @@ namespace EnderChest.Components
 		public void BindToNetwork(EnderNetwork network)
 		{
 			// 收集器只序列化核心 InstanceID；真正的核心对象通过 EnderNetworkRegistry.Resolve 再取回。
-			Debug.Log($"[EN] BindToNetWork {this.name} = {this.boundNetworkId}");
 			string oldId = boundNetwork != null ? boundNetwork.networkId : "";
 			string newId = network != null ? network.networkId : "";
 			if (oldId == newId)

@@ -61,7 +61,6 @@ namespace EnderChest.Components
 			this.nameChangedHandle = this.Subscribe((int)GameHashes.NameChanged, new System.Action<object>(this.OnNameChanged));
 			if (string.IsNullOrEmpty(uuid)) {
 				uuid = Guid.NewGuid().ToString();
-				Debug.Log($"[EN] Assign new uuid {uuid} to new network");
 			}
 			EnderNetworkRegistry.Register(this);
 		}
@@ -98,7 +97,6 @@ namespace EnderChest.Components
 			var list = member.Role == EnderNetworkMemberRole.Collector ? this.collectors : this.consumers;
 			if (!list.Contains(member))
 			{
-				Debug.Log($"[EN] Add member to network {name}");
 				list.Add(member);
 			}
 		}
