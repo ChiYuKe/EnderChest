@@ -22,10 +22,10 @@ namespace EnderChest.Components
 
 		bool IsOperational();
 	}
-	public class EnderNetwork : KMonoBehaviour
+	public class EnderNetwork : KMonoBehaviour, ISim1000ms
 	{
 
-		public const float TransferPerTickKg = 200f;
+		public const float TransferPerSecondKg = 1000f;
 
 		private EnderCore core;
 
@@ -61,7 +61,7 @@ namespace EnderChest.Components
 			this.collectors.Remove(member);
 			this.consumers.Remove(member);
 		}
-		public void Sim200ms(float dt)
+		public void Sim1000ms(float dt)
 		{
 			if (this.hubStorage == null || this.core == null || !this.core.IsOperational())
 			{
@@ -88,7 +88,7 @@ namespace EnderChest.Components
 			{
 				return;
 			}
-			float budget = Mathf.Min(TransferPerTickKg, remaining);
+			float budget = Mathf.Min(TransferPerSecondKg, remaining);
 			this.TransferUpToMass(local, this.hubStorage, budget);
 		}
 
