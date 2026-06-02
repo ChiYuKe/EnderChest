@@ -53,6 +53,8 @@ namespace EnderChest.Buildings
 			conduitConsumer.alwaysConsume = false;
 			go.AddOrGet<SimpleVent>();
 			go.AddOrGet<EnderCollector>();
+			// 这个标记组件用于控制选中建筑时是否显示末影网络面板。
+			go.AddOrGet<EnderChestLeftPanelTarget>();
 			go.AddOrGet<TreeFilterable>();
 		}
 
