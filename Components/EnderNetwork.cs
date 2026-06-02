@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using KSerialization;
 using UnityEngine;
 
 namespace EnderChest.Components
@@ -18,18 +19,30 @@ namespace EnderChest.Components
 
 		Storage LocalStorage { get; }
 
-		int BoundCoreInstanceId { get; }
+		int BoundNetworkInstanceId { get; }
 
 		bool IsOperational();
 	}
+
+	[SerializationConfig(MemberSerialization.OptIn)]
 	public class EnderNetwork : KMonoBehaviour, ISim1000ms
 	{
 
-		public const float TransferPerSecondKg = 1000f;
+		public const float TransferPerSecondKg = 1000f; 
+		
+		[Serialize]
+		public string networkName = "";
 
-		private EnderCore core;
+		[MyCmpGet]
+		private UserNameable nameable;
 
-		private Storage hubStorage;
+		private Storage hubStorage; 
+		
+		private int nameChangedHandle = -1;
+
+		public int InstanceID => this.GetComponent<KPrefabID>().InstanceID;
+
+		public Storage HubStorage => this.hubStorage;
 
 		private readonly List<IEnderNetworkMember> collectors = new List<IEnderNetworkMember>();
 
@@ -37,12 +50,38 @@ namespace EnderChest.Components
 		protected override void OnSpawn()
 		{
 			base.OnSpawn();
-			this.core = this.GetComponent<EnderCore>();
-			this.hubStorage = this.GetComponent<Storage>();
+			this.hubStorage = this.GetComponent<Storage>(); 
+			this.SyncNetworkNameFromNameable();
+			this.nameChangedHandle = this.Subscribe((int)GameHashes.NameChanged, new System.Action<object>(this.OnNameChanged));
+			EnderNetworkRegistry.Register(this);
+		}
+		protected override void OnCleanUp()
+		{
+			if (this.nameChangedHandle != -1)
+			{
+				this.Unsubscribe(this.nameChangedHandle);
+				this.nameChangedHandle = -1;
+			}
+			EnderNetworkRegistry.Unregister(this);
+			base.OnCleanUp();
+		}
+
+		private void OnNameChanged(object data)
+		{
+			this.SyncNetworkNameFromNameable();
+			EnderNetworkRegistry.NotifyCoresChanged();
+		}
+
+		private void SyncNetworkNameFromNameable()
+		{
+			if (this.nameable != null && !string.IsNullOrEmpty(this.nameable.savedName))
+			{
+				this.networkName = this.nameable.savedName;
+			}
 		}
 		public void RegisterMember(IEnderNetworkMember member)
 		{
-			if (member == null || member.BoundCoreInstanceId != this.core.InstanceID)
+			if (member == null || member.BoundNetworkInstanceId != this.InstanceID)
 			{
 				return;
 			}
@@ -63,7 +102,7 @@ namespace EnderChest.Components
 		}
 		public void Sim1000ms(float dt)
 		{
-			if (this.hubStorage == null || this.core == null || !this.core.IsOperational())
+			if (this.hubStorage == null || !this.IsOperational())
 			{
 				return;
 			}
@@ -131,7 +170,24 @@ namespace EnderChest.Components
 				moved += amount;
 			}
 		}
+		public string GetDisplayName()
+		{
+			if (this.nameable != null && !string.IsNullOrEmpty(this.nameable.savedName))
+			{
+				return this.nameable.savedName;
+			}
+			if (!string.IsNullOrEmpty(this.networkName))
+			{
+				return this.networkName;
+			}
+			return this.gameObject.GetProperName();
+		}
 
+		public bool IsOperational()
+		{
+			Operational operational = this.GetComponent<Operational>();
+			return operational == null || operational.IsOperational;
+		}
 
 	}
 }

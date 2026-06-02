@@ -36,7 +36,6 @@
     <Compile Include="Components\EnderCollector.cs" />
     <!-- 末影网络左侧面板的目标标记组件。 -->
     <Compile Include="Components\EnderChestLeftPanelTarget.cs" />
-    <Compile Include="Components\EnderCore.cs" />
     <Compile Include="Components\EnderNetwork.cs" />
     <Compile Include="Components\EnderNetworkRegistry.cs" />
     <!-- 本地化加载工具，用于注册 STRINGS 中的中文文本。 -->
@@ -46,7 +45,6 @@
     <Compile Include="ModEntry.cs" />
     <Compile Include="Patch\BuildingPatch.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="UI\EnderNetworkBindSelectionScreen.cs" />
     <Compile Include="UI\EnderNetworkBindSideScreen.cs" />
   </ItemGroup>
   <ItemGroup>

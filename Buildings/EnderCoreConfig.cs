@@ -48,7 +48,7 @@ namespace EnderChest.Buildings
 			Storage.StoredItemModifier.Hide
 		});
 			go.AddOrGet<CopyBuildingSettings>().copyGroupTag = GameTags.StorageLocker;
-			go.AddOrGet<EnderCore>();
+			go.AddOrGet<EnderNetwork>();
 			go.AddOrGet<UserNameable>();
 		}
 

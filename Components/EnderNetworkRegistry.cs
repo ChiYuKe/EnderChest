@@ -3,36 +3,32 @@ using UnityEngine;
 
 namespace EnderChest.Components
 {
-	public class EnderNetworkRegistry
+	public static class EnderNetworkRegistry
 	{
-		private static readonly Dictionary<int, EnderNetwork> networksByCoreId = new Dictionary<int, EnderNetwork>();
-
-		private static readonly List<EnderCore> allCores = new List<EnderCore>();
+		private static readonly List<EnderNetwork> allNetworks = new List<EnderNetwork>();
 
 		public static event System.Action CoresChanged;
 
-		public static void Register(EnderCore core, EnderNetwork network)
+		public static void Register(EnderNetwork network)
 		{
-			if (core == null || network == null)
+			if (network == null)
 			{
 				return;
 			}
-			networksByCoreId[core.InstanceID] = network;
-			if (!allCores.Contains(core))
+			if (!allNetworks.Contains(network))
 			{
-				allCores.Add(core);
+				allNetworks.Add(network);
 				NotifyCoresChanged();
 			}
 		}
 
-		public static void Unregister(EnderCore core)
+		public static void Unregister(EnderNetwork network)
 		{
-			if (core == null)
+			if (network == null)
 			{
 				return;
 			}
-			networksByCoreId.Remove(core.InstanceID);
-			if (allCores.Remove(core))
+			if (allNetworks.Remove(network))
 			{
 				NotifyCoresChanged();
 			}
@@ -43,49 +39,30 @@ namespace EnderChest.Components
 			CoresChanged?.Invoke();
 		}
 
-		public static EnderNetwork Resolve(int coreInstanceId)
-		{
-			EnderNetwork network;
-			if (coreInstanceId != 0 && networksByCoreId.TryGetValue(coreInstanceId, out network))
-			{
-				return network;
-			}
-			return null;
+		public static List<EnderNetwork> GetAllNetworks() {
+			var result = new List<EnderNetwork>(EnderNetworkRegistry.allNetworks);
+			return result;
 		}
-
-		public static List<EnderCore> GetAllCores()
+		public static List<EnderNetwork> GetCoresForWorld(int worldId)
 		{
-			var result = new List<EnderCore>();
-			for (int i = 0; i < allCores.Count; i++)
+			var result = new List<EnderNetwork>();
+			for (int i = 0; i < allNetworks.Count; i++)
 			{
-				EnderCore core = allCores[i];
-				if (core != null && core.gameObject != null)
+				EnderNetwork network = allNetworks[i];
+				if (network != null && network.gameObject != null && network.GetMyWorldId() == worldId)
 				{
-					result.Add(core);
+					result.Add(network);
 				}
 			}
-			result.Sort(CompareCoresForDisplay);
 			return result;
 		}
 
-		public static List<EnderCore> GetCoresForWorld(int worldId)
-		{
-			var result = new List<EnderCore>();
-			for (int i = 0; i < allCores.Count; i++)
-			{
-				EnderCore core = allCores[i];
-				if (core != null && core.gameObject != null && core.GetMyWorldId() == worldId)
-				{
-					result.Add(core);
-				}
-			}
-			result.Sort(CompareCoresForDisplay);
-			return result;
+		public static EnderNetwork Resolve(int networkInstanceId) {
+			return EnderNetworkRegistry.allNetworks.Find(w => w.InstanceID == networkInstanceId);
 		}
-
-		public static int CountCollectorsBoundTo(int coreInstanceId)
+		public static int CountCollectorsBoundTo(int networkInstanceId)
 		{
-			if (coreInstanceId == 0)
+			if (networkInstanceId == 0)
 			{
 				return 0;
 			}
@@ -95,22 +72,12 @@ namespace EnderChest.Components
 			{
 				EnderCollector collector = collectors[i];
 				if (collector != null && collector.gameObject != null
-					&& collector.BoundCoreInstanceId == coreInstanceId)
+					&& collector.BoundNetworkInstanceId == networkInstanceId)
 				{
 					count++;
 				}
 			}
 			return count;
-		}
-
-		private static int CompareCoresForDisplay(EnderCore a, EnderCore b)
-		{
-			int worldCompare = a.GetMyWorldId().CompareTo(b.GetMyWorldId());
-			if (worldCompare != 0)
-			{
-				return worldCompare;
-			}
-			return string.Compare(a.GetDisplayName(), b.GetDisplayName(), System.StringComparison.OrdinalIgnoreCase);
 		}
 	}
 }

@@ -242,64 +242,63 @@ namespace EnderChest.UI
 				Destroy(rowsRoot.transform.GetChild(i).gameObject);
 			}
 
-			List<EnderCore> cores = GetAvailableCores();
+			List<EnderNetwork> networks = GetAvailableNetworks();
 			if (emptyLabel != null)
 			{
-				emptyLabel.transform.parent.gameObject.SetActive(cores.Count == 0);
+				emptyLabel.transform.parent.gameObject.SetActive(networks.Count == 0);
 			}
 
-			for (int i = 0; i < cores.Count; i++)
+			for (int i = 0; i < networks.Count; i++)
 			{
-				EnderCore core = cores[i];
-				string marker = IsBoundTo(core) ? STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.SELECTED_MARKER) : "";
-				new PButton("EnderCore_" + core.InstanceID)
+				EnderNetwork network = networks[i];
+				string marker = IsBoundTo(network) ? STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.SELECTED_MARKER) : "";
+				new PButton("EnderNetwork_" + network.InstanceID)
 				{
-					Text = marker + core.GetDisplayName() + "\n" + GetCoreDetail(core),
+					Text = marker + network.GetDisplayName() + "\n" + GetNetworkDetail(network),
 					TextAlignment = TextAnchor.MiddleLeft,
-					OnClick = delegate { Bind(core); }
+					OnClick = delegate { Bind(network); }
 				}.SetKleiBlueStyle().AddTo(rowsRoot, -2);
 			}
 		}
 
-		private List<EnderCore> GetAvailableCores()
+		private List<EnderNetwork> GetAvailableNetworks()
 		{
 			int worldId = collector != null ? collector.GetMyWorldId() : -1;
 			return worldId >= 0
 				? EnderNetworkRegistry.GetCoresForWorld(worldId)
-				: EnderNetworkRegistry.GetAllCores();
+				: EnderNetworkRegistry.GetAllNetworks();
 		}
 
 		private string GetCurrentCoreName()
 		{
-			if (collector == null || collector.BoundCoreInstanceId == 0)
+			if (collector == null || collector.BoundNetworkInstanceId == 0)
 			{
 				return STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.EMPTY);
 			}
 
-			EnderNetwork network = EnderNetworkRegistry.Resolve(collector.BoundCoreInstanceId);
-			EnderCore core = network != null ? network.GetComponent<EnderCore>() : null;
-			return core != null ? core.GetDisplayName() : STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.INVALID_CORE);
+			EnderNetwork network = EnderNetworkRegistry.Resolve(collector.BoundNetworkInstanceId);
+			return network != null ? network.GetDisplayName() : STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.INVALID_CORE);
 		}
 
-		private string GetCoreDetail(EnderCore core)
+		private string GetNetworkDetail(EnderNetwork network)
 		{
-			int collectors = EnderNetworkRegistry.CountCollectorsBoundTo(core.InstanceID);
-			return string.Format(STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.CORE_DETAIL), core.GetMyWorldId(), collectors);
+			int collectors = EnderNetworkRegistry.CountCollectorsBoundTo(network.InstanceID);
+			return string.Format(STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.CORE_DETAIL), network.GetMyWorldId(), collectors);
 		}
 
-		private bool IsBoundTo(EnderCore core)
+		private bool IsBoundTo(EnderNetwork network)
 		{
-			return collector != null && core != null && collector.BoundCoreInstanceId == core.InstanceID;
+			return collector != null && network != null && collector.BoundNetworkInstanceId == network.InstanceID;
 		}
 
-		private void Bind(EnderCore core)
+		private void Bind(EnderNetwork network)
 		{
 			if (collector == null)
 			{
 				return;
 			}
 
-			collector.BindToStorageCore(core);
+			collector.BindToNetwork(network);
 			RefreshUi();
 		}
 
@@ -310,7 +309,7 @@ namespace EnderChest.UI
 				return;
 			}
 
-			collector.BindToStorageCore(null);
+			collector.BindToNetwork(null);
 			RefreshUi();
 		}
 

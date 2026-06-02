@@ -12,7 +12,7 @@ namespace EnderChest.Components
 
 		public EnderNetworkMemberRole Role => EnderNetworkMemberRole.Collector;
 
-		public int BoundCoreInstanceId => this.boundCoreInstanceId;
+		public int BoundNetworkInstanceId => this.boundNetworkInstanceId;
 
 		[MyCmpGet]
 		private Storage storage;
@@ -51,7 +51,7 @@ namespace EnderChest.Components
 		public string lockerName = "";
 
 		[Serialize]
-		public int boundCoreInstanceId;
+		public int boundNetworkInstanceId;
 
 		private EnderNetwork boundNetwork;
 
@@ -63,12 +63,12 @@ namespace EnderChest.Components
 
 		public bool ControlEnabled() => true;
 
-		public int GetBoundCoreInstanceId() => this.boundCoreInstanceId;
+		public int GetBoundNetworkInstanceId() => this.boundNetworkInstanceId;
 
-		public void BindToStorageCore(EnderCore core)
+		public void BindToNetwork(EnderNetwork network)
 		{
-			int newId = core != null ? core.InstanceID : 0;
-			if (this.boundCoreInstanceId == newId)
+			int newId = network != null ? network.InstanceID : 0;
+			if (this.boundNetworkInstanceId == newId)
 			{
 				return;
 			}
@@ -77,7 +77,7 @@ namespace EnderChest.Components
 				this.boundNetwork.UnregisterMember(this);
 				this.boundNetwork = null;
 			}
-			this.boundCoreInstanceId = newId;
+			this.boundNetworkInstanceId = newId;
 			this.TryRegisterWithNetwork();
 		}
 
@@ -107,7 +107,7 @@ namespace EnderChest.Components
 
 		private void TryRegisterWithNetwork()
 		{
-			this.boundNetwork = EnderNetworkRegistry.Resolve(this.boundCoreInstanceId);
+			this.boundNetwork = EnderNetworkRegistry.Resolve(this.boundNetworkInstanceId);
 			this.boundNetwork?.RegisterMember(this);
 		}
 	}
