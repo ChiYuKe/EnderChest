@@ -14,13 +14,17 @@ namespace EnderChest.UI
 		private const float PanelHeight = 715f;
 		private const float PanelGap = 7.114f;
 		private const float PanelY = 173.761f;
+		private static RectTransform cachedDetailsSideScreen;
+		private static GameObject cachedGeoTunerRowPrefab;
+		private static bool resolvedGeoTunerRowPrefab;
 
 		private EnderChestLeftPanelTarget panelTarget;
 		private EnderCollector collector;
 		private GameObject panelObject;
 		private LocText currentCoreLabel;
-		private LocText emptyLabel;
+		private GameObject emptyRow;
 		private GameObject rowsRoot;
+		private bool refreshScheduled;
 
 		protected override void OnPrefabInit()
 		{
@@ -45,7 +49,7 @@ namespace EnderChest.UI
 			panelTarget = target != null ? target.GetComponent<EnderChestLeftPanelTarget>() : null;
 			collector = panelTarget != null ? panelTarget.Collector : null;
 			OpenPanel();
-			RefreshUi();
+			RequestRefreshUi();
 		}
 
 		public override void ClearTarget()
@@ -59,24 +63,26 @@ namespace EnderChest.UI
 		protected override void OnSpawn()
 		{
 			base.OnSpawn();
-			EnderNetworkRegistry.CoresChanged += RefreshUi;
-			if (panelTarget != null)
+			EnderNetworkRegistry.CoresChanged += RequestRefreshUi;
+			if (panelObject == null)
 			{
-				OpenPanel();
-				RefreshUi();
+				// 提前创建并隐藏，避免第一次选中建筑时把 PLib 构建成本压到同一帧。
+				panelObject = BuildPanel();
+				panelObject.SetActive(false);
 			}
 		}
 
 		protected override void OnCleanUp()
 		{
-			EnderNetworkRegistry.CoresChanged -= RefreshUi;
-			ClosePanel();
+			EnderNetworkRegistry.CoresChanged -= RequestRefreshUi;
+			CancelPendingRefresh();
+			DestroyPanel();
 			base.OnCleanUp();
 		}
 
 		private void OpenPanel()
 		{
-			// 延迟创建面板，避免没有选中目标时提前污染 DetailsScreen 层级。
+			// 正常情况下 OnSpawn 已经预建面板；这里保留兜底，防止特殊加载顺序下没有 UI 可显示。
 			if (panelObject == null)
 			{
 				panelObject = BuildPanel();
@@ -88,70 +94,155 @@ namespace EnderChest.UI
 		private GameObject BuildPanel()
 		{
 			// 用 PLib 构建独立 UI，不再依赖 AssetBundle 或 Unity 预制件。
-			GameObject panel = new PPanel("EnderChestLeftPanel")
+			PPanel bindContent = new PPanel("EnderChestBindContent")
 			{
 				Direction = PanelDirection.Vertical,
 				Spacing = 6,
 				Alignment = TextAnchor.UpperCenter,
-				Margin = new RectOffset(6, 6, 6, 6)
+				BackColor = PUITuning.Colors.BackgroundLight,
+				FlexSize = Vector2.right,
+				Margin = new RectOffset(8, 8, 8, 8)
 			}
-				.SetKleiPinkColor()
-				.AddChild(new PLabel("EnderChestBindTitle")
-				{
-					Text = STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.TITLE),
-					TextAlignment = TextAnchor.MiddleCenter,
-					DynamicSize = true
-				}.SetKleiPinkColor())
 				.AddChild(new PLabel("EnderChestCurrentCore")
 				{
 					Text = STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.CURRENT_PREFIX) + STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.EMPTY),
 					TextAlignment = TextAnchor.MiddleLeft,
-					DynamicSize = true
+					TextStyle = PUITuning.Fonts.UIDarkStyle,
+					DynamicSize = true,
+					FlexSize = Vector2.right,
+					Margin = new RectOffset(4, 4, 2, 2)
 				}.AddOnRealize(delegate (GameObject obj)
 				{
 					currentCoreLabel = obj.GetComponentInChildren<LocText>();
+					SetLayoutSize(obj, PanelWidth - 32f, 24f, 0f);
 				}))
 				.AddChild(new PPanel("EnderChestBindButtons")
 				{
 					Direction = PanelDirection.Horizontal,
-					Spacing = 6,
+					Spacing = 8,
 					Alignment = TextAnchor.MiddleCenter,
-					DynamicSize = true
-				}
+					DynamicSize = true,
+					FlexSize = Vector2.right,
+					Margin = new RectOffset(0, 0, 2, 2)
+				}.AddOnRealize(delegate(GameObject obj)
+				{
+					SetLayoutSize(obj, PanelWidth - 32f, 32f, 0f);
+				})
 					.AddChild(new PButton("EnderChestRefresh")
 					{
 						Text = STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.REFRESH),
+						Margin = new RectOffset(8, 8, 5, 5),
 						OnClick = delegate { RefreshUi(); }
 					}.SetKleiBlueStyle())
 					.AddChild(new PButton("EnderChestUnbind")
 					{
 						Text = STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.UNBIND),
+						Margin = new RectOffset(8, 8, 5, 5),
 						OnClick = delegate { Unbind(); }
-					}.SetKleiPinkStyle()))
-				.AddChild(new PLabel("EnderChestEmpty")
+					}.SetKleiPinkStyle()));
+
+			PPanel rowsPanel = new PPanel("EnderChestCoreRows")
+			{
+				Direction = PanelDirection.Vertical,
+				Spacing = 8,
+				Alignment = TextAnchor.UpperCenter,
+				FlexSize = Vector2.right,
+				Margin = new RectOffset(6, 6, 6, 6)
+			}.AddOnRealize(delegate(GameObject obj)
+			{
+				rowsRoot = obj;
+			});
+
+			PScrollPane rowsScroll = new PScrollPane("EnderChestCoreScroll")
+			{
+				Child = rowsPanel,
+				ScrollHorizontal = false,
+				ScrollVertical = true,
+				AlwaysShowHorizontal = false,
+				AlwaysShowVertical = false,
+				TrackSize = 8f,
+				FlexSize = Vector2.one
+			};
+
+			PPanel listContent = new PPanel("EnderChestListContent")
+			{
+				Direction = PanelDirection.Vertical,
+				Spacing = 0,
+				Alignment = TextAnchor.UpperCenter,
+				BackColor = PUITuning.Colors.BackgroundLight,
+				FlexSize = Vector2.one,
+				Margin = new RectOffset(0, 0, 0, 0)
+			}
+				.AddChild(new PLabel("EnderChestEmptyRow")
 				{
 					Text = STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.NO_CORES),
 					TextAlignment = TextAnchor.MiddleCenter,
-					DynamicSize = true
+					TextStyle = PUITuning.Fonts.UIDarkStyle,
+					DynamicSize = true,
+					FlexSize = Vector2.right,
+					Margin = new RectOffset(8, 8, 8, 8)
 				}.AddOnRealize(delegate(GameObject obj)
 				{
-					emptyLabel = obj.GetComponentInChildren<LocText>();
+					emptyRow = obj;
+					SetLayoutSize(obj, PanelWidth - 32f, 34f, 0f);
+					SetBoxBorderImage(obj, PUITuning.Colors.BackgroundLight);
 				}))
-				.AddChild(new PPanel("EnderChestCoreRows")
+				.AddChild(rowsScroll.AddOnRealize(delegate(GameObject obj)
 				{
-					Direction = PanelDirection.Vertical,
-					Spacing = 4,
-					Alignment = TextAnchor.UpperCenter,
-					DynamicSize = true,
-				}.AddOnRealize(delegate (GameObject obj)
-				{
-					rowsRoot = obj;
-					LayoutElement le = obj.AddOrGet<LayoutElement>();
+					SetLayoutSize(obj, PanelWidth - 16f, 520f, 1f);
+				}));
 
-					le.minWidth = PanelWidth - 10;
-					le.preferredWidth = PanelWidth - 10;
+			GameObject panel = new PPanel("EnderChestLeftPanel")
+			{
+				Direction = PanelDirection.Vertical,
+				Spacing = 0,
+				Alignment = TextAnchor.UpperCenter,
+				Margin = new RectOffset(0, 0, 0, 0),
+				FlexSize = Vector2.one,
+				BackColor = PUITuning.Colors.BackgroundLight
+			}
+				.AddChild(new PLabel("EnderChestBindTitle")
+				{
+					Text = STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.TITLE),
+					TextAlignment = TextAnchor.MiddleCenter,
+					DynamicSize = true,
+					FlexSize = Vector2.right,
+					Margin = new RectOffset(6, 6, 2, 2)
+				}.SetKleiPinkColor().AddOnRealize(delegate(GameObject obj)
+				{
+					SetLayoutSize(obj, PanelWidth, 26f, 0f);
+					SetKleiTitleBarImage(obj);
+				}))
+				.AddChild(new PLabel("EnderChestBindSection")
+				{
+					Text = STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.TITLE),
+					TextAlignment = TextAnchor.MiddleLeft,
+					DynamicSize = true,
+					FlexSize = Vector2.right,
+					Margin = new RectOffset(6, 6, 2, 2)
+				}.SetKleiPinkColor().AddOnRealize(delegate(GameObject obj)
+				{
+					SetLayoutSize(obj, PanelWidth, 24f, 0f);
+				}))
+				.AddChild(bindContent)
+				.AddChild(new PLabel("EnderChestCoreSection")
+				{
+					Text = STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.CORE_LIST_TITLE),
+					TextAlignment = TextAnchor.MiddleLeft,
+					DynamicSize = true,
+					FlexSize = Vector2.right,
+					Margin = new RectOffset(6, 6, 2, 2)
+				}.SetKleiPinkColor().AddOnRealize(delegate(GameObject obj)
+				{
+					SetLayoutSize(obj, PanelWidth, 24f, 0f);
+				}))
+				.AddChild(listContent.AddOnRealize(delegate(GameObject obj)
+				{
+					SetLayoutSize(obj, PanelWidth, 585f, 1f);
 				}))
 				.BuildWithFixedSize(new Vector2(PanelWidth, PanelHeight));
+
+			SetBoxBorderImage(panel, PUITuning.Colors.BackgroundLight);
 
 			RectTransform sideRect = FindRightmostDetailsSideScreen();
 			// 面板挂到 SideScreen 的父节点下，才能和原版详情侧屏并排显示。
@@ -209,19 +300,57 @@ namespace EnderChest.UI
 
 		private void ClosePanel()
 		{
+			CancelPendingRefresh();
+			if (panelObject != null)
+			{
+				// 关闭时只隐藏 UI，避免下一次选中建筑时重新创建整棵控件树导致掉帧。
+				panelObject.SetActive(false);
+			}
+		}
+
+		private void DestroyPanel()
+		{
+			// 组件销毁时才真正释放面板对象；普通切换目标只隐藏复用。
 			if (panelObject != null)
 			{
 				Destroy(panelObject);
 				panelObject = null;
 			}
 			currentCoreLabel = null;
-			emptyLabel = null;
+			emptyRow = null;
 			rowsRoot = null;
+		}
+
+		private void RequestRefreshUi()
+		{
+			if (panelObject == null || !panelObject.activeSelf)
+			{
+				return;
+			}
+
+			CancelPendingRefresh();
+			refreshScheduled = true;
+			// SideScreenContent 自身可能是 inactive，不能 StartCoroutine；用 ONI 的 UI 调度器延迟到下一帧刷新。
+			UIScheduler.Instance.ScheduleNextFrame("EnderChestRefreshBindSideScreen", delegate(object data)
+			{
+				if (!refreshScheduled)
+				{
+					return;
+				}
+				refreshScheduled = false;
+				RefreshUi();
+			});
+		}
+
+		private void CancelPendingRefresh()
+		{
+			// ScheduleNextFrame 不能直接取消，用标记让回调到达后自行跳过。
+			refreshScheduled = false;
 		}
 
 		private void RefreshUi()
 		{
-			if (panelObject == null)
+			if (panelObject == null || !panelObject.activeSelf)
 			{
 				return;
 			}
@@ -240,28 +369,200 @@ namespace EnderChest.UI
 				return;
 			}
 
-			// 核心列表数量很少，刷新时直接重建按钮可以保持逻辑简单。
-			for (int i = rowsRoot.transform.childCount - 1; i >= 0; i--)
-			{
-				Destroy(rowsRoot.transform.GetChild(i).gameObject);
-			}
-
+			// 刷新时复用已有行，只更新内容和显隐，减少打开面板时的对象创建。
 			List<EnderNetwork> networks = GetAvailableNetworks();
-			if (emptyLabel != null)
+			if (emptyRow != null)
 			{
-				emptyLabel.transform.parent.gameObject.SetActive(networks.Count == 0);
+				emptyRow.SetActive(networks.Count == 0);
 			}
 
+			GameObject prefab = GetGeoTunerRowPrefab();
 			for (int i = 0; i < networks.Count; i++)
 			{
-				EnderNetwork network = networks[i];
-				string marker = IsBoundTo(network) ? STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.SELECTED_MARKER) : "";
-				new PButton("EnderNetwork_" + network.InstanceID)
+				SetNetworkRow(i, networks[i], prefab);
+			}
+
+			for (int i = networks.Count; i < rowsRoot.transform.childCount; i++)
+			{
+				rowsRoot.transform.GetChild(i).gameObject.SetActive(false);
+			}
+		}
+
+		private void SetNetworkRow(int index, EnderNetwork network, GameObject prefab)
+		{
+			// 优先克隆地质调谐仪的原版列表行，复用它的 MultiToggle 选中态和行样式。
+			if (prefab == null)
+			{
+				SetFallbackNetworkRow(index, network);
+				return;
+			}
+
+			GameObject row = index < rowsRoot.transform.childCount
+				? rowsRoot.transform.GetChild(index).gameObject
+				: Util.KInstantiateUI(prefab, rowsRoot, true);
+			row.SetActive(true);
+			row.name = "EnderNetwork_" + network.InstanceID;
+
+			// 地质调谐仪行预制件通过 HierarchyReferences 暴露 label/icon/amount，这里只替换内容，不改原版结构。
+			HierarchyReferences references = row.GetComponent<HierarchyReferences>();
+			if (references != null)
+			{
+				LocText label = references.GetReference<LocText>("label");
+				if (label != null)
 				{
-					Text = marker + network.GetDisplayName() + "\n" + GetNetworkDetail(network),
+					label.text = network.GetDisplayName();
+					label.textStyleSetting = PUITuning.Fonts.UIDarkStyle;
+					label.ApplySettings();
+				}
+
+				Image icon = references.GetReference<Image>("icon");
+				if (icon != null)
+				{
+					icon.sprite = Def.GetUISprite(network.gameObject, "ui", false).first;
+					icon.color = Color.white;
+				}
+
+				LocText amount = references.GetReference<LocText>("amount");
+				if (amount != null)
+				{
+					// 右侧计数显示当前绑定到这个核心的收集器数量。
+					int boundCollectors = EnderNetworkRegistry.CountCollectorsBoundTo(network.InstanceID);
+					amount.SetText(boundCollectors.ToString());
+					if (amount.transform.parent != null)
+					{
+						GameObject amountGroup = amount.transform.parent.gameObject;
+						amountGroup.SetActive(true);
+						SetCollectorCountIcon(amountGroup);
+					}
+				}
+			}
+
+			ToolTip tooltip = row.GetComponentInChildren<ToolTip>();
+			if (tooltip != null)
+			{
+				tooltip.SetSimpleTooltip(GetNetworkDetail(network));
+			}
+
+			MultiToggle toggle = row.GetComponent<MultiToggle>();
+			if (toggle != null)
+			{
+				toggle.ChangeState(IsBoundTo(network) ? 1 : 0);
+				toggle.onClick = delegate
+				{
+					Bind(network);
+				};
+				toggle.onDoubleClick = delegate
+				{
+					GameUtil.FocusCamera(network.transform.GetPosition(), 2f, true, true);
+					return true;
+				};
+			}
+			else
+			{
+				// 兜底：如果克隆出来的行没有 MultiToggle，就挂一个轻量点击代理，避免重复添加匿名事件。
+				row.AddOrGet<KButton>();
+				row.AddOrGet<EnderNetworkRowClickHandler>().Configure(this, network);
+			}
+		}
+
+		private void SetFallbackNetworkRow(int index, EnderNetwork network)
+		{
+			GameObject row;
+			if (index < rowsRoot.transform.childCount)
+			{
+				// 列表行数量不会每次重建，复用已有行能减少打开/刷新时的 GC 和布局抖动。
+				row = rowsRoot.transform.GetChild(index).gameObject;
+				row.SetActive(true);
+			}
+			else
+			{
+				row = new PButton("EnderNetwork_" + network.InstanceID)
+				{
 					TextAlignment = TextAnchor.MiddleLeft,
-					OnClick = delegate { Bind(network); }
-				}.SetKleiBlueStyle().AddTo(rowsRoot, -2);
+					TextStyle = PUITuning.Fonts.UIDarkStyle,
+					Margin = new RectOffset(10, 10, 8, 8)
+				}.AddOnRealize(delegate(GameObject obj)
+				{
+					SetLayoutSize(obj, PanelWidth - 28f, 48f, 0f);
+				}).AddTo(rowsRoot, -2);
+			}
+
+			PButton.SetButtonEnabled(row, true);
+			row.AddOrGet<EnderNetworkRowClickHandler>().Configure(this, network);
+			LocText label = row.GetComponentInChildren<LocText>();
+			if (label != null)
+			{
+				label.SetText(network.GetDisplayName() + "\n" + GetNetworkDetail(network));
+			}
+			SetBoxBorderImage(row, IsBoundTo(network) ? new Color32(232, 210, 222, 255) : new Color32(245, 245, 245, 255));
+		}
+
+		private GameObject GetGeoTunerRowPrefab()
+		{
+			if (resolvedGeoTunerRowPrefab)
+			{
+				return cachedGeoTunerRowPrefab;
+			}
+
+			resolvedGeoTunerRowPrefab = true;
+			// 只全局查找一次地质调谐仪侧屏，后续刷新直接复用缓存，避免打开面板时反复扫描 Resources。
+			GeoTunerSideScreen[] screens = Resources.FindObjectsOfTypeAll<GeoTunerSideScreen>();
+			for (int i = 0; i < screens.Length; i++)
+			{
+				if (screens[i] != null && screens[i].rowPrefab != null)
+				{
+					cachedGeoTunerRowPrefab = screens[i].rowPrefab;
+					return cachedGeoTunerRowPrefab;
+				}
+			}
+			return null;
+		}
+
+		private static void SetLayoutSize(GameObject obj, float width, float height, float flexHeight)
+		{
+			// PLib 负责创建控件树；LayoutElement 只用来声明固定区和滚动区的布局尺寸。
+			LayoutElement layout = obj.AddOrGet<LayoutElement>();
+			layout.minWidth = width;
+			layout.preferredWidth = width;
+			layout.minHeight = height;
+			layout.preferredHeight = height;
+			layout.flexibleWidth = 0f;
+			layout.flexibleHeight = flexHeight;
+		}
+
+		private static void SetKleiTitleBarImage(GameObject obj)
+		{
+			// 复用 PLib.PDialog 标题栏的边框图，保持和 PLib 窗口标题一致。
+			SetBoxBorderImage(obj, PUITuning.Colors.ButtonPinkStyle.inactiveColor);
+		}
+
+		private static void SetBoxBorderImage(GameObject obj, Color color)
+		{
+			Image image = obj.AddOrGet<Image>();
+			image.color = color;
+			image.sprite = PUITuning.Images.BoxBorder;
+			image.type = Image.Type.Sliced;
+		}
+
+		private static void SetCollectorCountIcon(GameObject amountGroup)
+		{
+			if (amountGroup == null)
+			{
+				return;
+			}
+
+			Image countIcon = amountGroup.GetComponentInChildren<Image>(true);
+			if (countIcon == null)
+			{
+				return;
+			}
+
+			// 地质调谐仪预制件自带的计数图标含义不对，这里换成末影收集器建筑图标。
+			GameObject collectorPrefab = Assets.GetPrefab("EnderCollector");
+			if (collectorPrefab != null)
+			{
+				countIcon.sprite = Def.GetUISprite(collectorPrefab, "ui", false).first;
+				countIcon.color = Color.white;
 			}
 		}
 
@@ -275,6 +576,7 @@ namespace EnderChest.UI
 
 		private string GetCurrentCoreName()
 		{
+			// 当前绑定只保存核心 InstanceID，显示名称前先从注册表找回核心对象。
 			if (collector == null || collector.BoundNetworkInstanceId == 0)
 			{
 				return STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.EMPTY);
@@ -316,6 +618,7 @@ namespace EnderChest.UI
 
 		private void Bind(EnderNetwork network)
 		{
+			// 点击核心行后，把当前收集器绑定到该核心并立即刷新选中态。
 			if (collector == null)
 			{
 				return;
@@ -327,6 +630,7 @@ namespace EnderChest.UI
 
 		private void Unbind()
 		{
+			// 解绑按钮会清空当前收集器保存的核心 InstanceID。
 			if (collector == null)
 			{
 				return;
@@ -338,6 +642,11 @@ namespace EnderChest.UI
 
 		private static RectTransform FindRightmostDetailsSideScreen()
 		{
+			if (cachedDetailsSideScreen != null && cachedDetailsSideScreen.gameObject.activeInHierarchy && IsUnderDetailsScreen(cachedDetailsSideScreen))
+			{
+				return cachedDetailsSideScreen;
+			}
+
 			// 游戏里可能同时存在筛选侧屏和详情侧屏，取最靠右的那个作为定位基准。
 			RectTransform best = null;
 			float bestRight = float.MinValue;
@@ -365,6 +674,7 @@ namespace EnderChest.UI
 				}
 			}
 
+			cachedDetailsSideScreen = best;
 			return best;
 		}
 
@@ -380,6 +690,44 @@ namespace EnderChest.UI
 				current = current.parent;
 			}
 			return false;
+		}
+
+		private sealed class EnderNetworkRowClickHandler : MonoBehaviour
+		{
+			private EnderNetworkBindSideScreen owner;
+			private EnderNetwork network;
+			private KButton button;
+
+			public void Configure(EnderNetworkBindSideScreen newOwner, EnderNetwork newNetwork)
+			{
+				// 行对象会被复用，点击处理器只注册一次事件，后续刷新只替换 owner/network 引用。
+				owner = newOwner;
+				network = newNetwork;
+				if (button == null)
+				{
+					button = GetComponent<KButton>();
+					if (button != null)
+					{
+						button.onClick += OnClick;
+					}
+				}
+			}
+
+			private void OnClick()
+			{
+				if (owner != null && network != null)
+				{
+					owner.Bind(network);
+				}
+			}
+
+			private void OnDestroy()
+			{
+				if (button != null)
+				{
+					button.onClick -= OnClick;
+				}
+			}
 		}
 	}
 }

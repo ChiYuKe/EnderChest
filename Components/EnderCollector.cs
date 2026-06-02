@@ -67,6 +67,7 @@ namespace EnderChest.Components
 
 		public void BindToNetwork(EnderNetwork network)
 		{
+			// 收集器只序列化核心 InstanceID；真正的核心对象通过 EnderNetworkRegistry.Resolve 再取回。
 			int newId = network != null ? network.InstanceID : 0;
 			if (this.boundNetworkInstanceId == newId)
 			{
@@ -91,11 +92,15 @@ namespace EnderChest.Components
 		protected override void OnSpawn()
 		{
 			base.OnSpawn();
+			// 注册到网络表，侧屏统计绑定数量时就不用全局查找所有收集器。
+			EnderNetworkRegistry.RegisterCollector(this);
 			this.TryRegisterWithNetwork();
 		}
 
 		protected override void OnCleanUp()
 		{
+			// 清理时先从统计缓存移除，防止 UI 继续把这个收集器算进绑定数量。
+			EnderNetworkRegistry.UnregisterCollector(this);
 			if (this.boundNetwork != null)
 			{
 				this.boundNetwork.UnregisterMember(this);
@@ -107,6 +112,7 @@ namespace EnderChest.Components
 
 		private void TryRegisterWithNetwork()
 		{
+			// 存档加载或重新绑定后，根据保存的 InstanceID 找回核心对象并注册为网络成员。
 			this.boundNetwork = EnderNetworkRegistry.Resolve(this.boundNetworkInstanceId);
 			this.boundNetwork?.RegisterMember(this);
 		}
