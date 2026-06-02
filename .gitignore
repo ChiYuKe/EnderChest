@@ -365,3 +365,5 @@ FodyWeavers.xsd
 # csproj and sln
 *.csproj
 *.sln
+/EnderChest.slnx
+/EnderChest.csproj
