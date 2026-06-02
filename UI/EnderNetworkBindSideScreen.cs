@@ -146,6 +146,10 @@ namespace EnderChest.UI
 				}.AddOnRealize(delegate (GameObject obj)
 				{
 					rowsRoot = obj;
+					LayoutElement le = obj.AddOrGet<LayoutElement>();
+
+					le.minWidth = PanelWidth - 10;
+					le.preferredWidth = PanelWidth - 10;
 				}))
 				.BuildWithFixedSize(new Vector2(PanelWidth, PanelHeight));
 
