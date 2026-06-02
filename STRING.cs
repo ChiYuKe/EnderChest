@@ -16,9 +16,9 @@
                 public static LocString REFRESH = "刷新";
                 public static LocString UNBIND = "解绑";
                 public static LocString NO_CORES = "没有可用核心";
-                public static LocString SELECTED_MARKER = "√ ";
-                public static LocString CORE_DETAIL = "世界 {0} / 已绑定 {1}";
-            }
+				public static LocString SELECTED_MARKER = "√ ";
+                public static LocString CORE_DETAIL = "({0}) 已绑定 {1}";
+			}
 
 		}
 

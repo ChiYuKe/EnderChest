@@ -107,7 +107,7 @@ namespace EnderChest.UI
 					Text = STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.CURRENT_PREFIX) + STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.EMPTY),
 					TextAlignment = TextAnchor.MiddleLeft,
 					DynamicSize = true
-				}.AddOnRealize(delegate(GameObject obj)
+				}.AddOnRealize(delegate (GameObject obj)
 				{
 					currentCoreLabel = obj.GetComponentInChildren<LocText>();
 				}))
@@ -142,8 +142,8 @@ namespace EnderChest.UI
 					Direction = PanelDirection.Vertical,
 					Spacing = 4,
 					Alignment = TextAnchor.UpperCenter,
-					DynamicSize = true
-				}.AddOnRealize(delegate(GameObject obj)
+					DynamicSize = true,
+				}.AddOnRealize(delegate (GameObject obj)
 				{
 					rowsRoot = obj;
 				}))
@@ -280,10 +280,29 @@ namespace EnderChest.UI
 			return network != null ? network.GetDisplayName() : STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.INVALID_CORE);
 		}
 
+		internal static string GetWorldDisplayName(int worldId)
+		{
+			if (ClusterManager.Instance == null)
+			{
+				return string.Empty;
+			}
+			WorldContainer world = ClusterManager.Instance.GetWorld(worldId);
+			if (world == null)
+			{
+				return string.Empty;
+			}
+			ClusterGridEntity clusterEntity = world.GetComponent<ClusterGridEntity>();
+			if (clusterEntity != null && !string.IsNullOrEmpty(clusterEntity.Name))
+			{
+				return clusterEntity.Name;
+			}
+			return world.worldName ?? string.Empty;
+		}
 		private string GetNetworkDetail(EnderNetwork network)
 		{
 			int collectors = EnderNetworkRegistry.CountCollectorsBoundTo(network.InstanceID);
-			return string.Format(STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.CORE_DETAIL), network.GetMyWorldId(), collectors);
+			
+			return string.Format(STRINGS.Get(STRINGS.SIDESCREEN.ENDERNETWORKBIND.CORE_DETAIL), GetWorldDisplayName(network.GetMyWorldId()), collectors);
 		}
 
 		private bool IsBoundTo(EnderNetwork network)
